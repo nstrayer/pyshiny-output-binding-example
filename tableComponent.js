@@ -6,40 +6,50 @@ import { Tabulator } from "https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabu
 // - Add logic for customizing display based on column types
 // - Wrap up the render.data_frame() logic into a new render.tabulator()
 //   function so custom logic can be provided
-makeShinyOutputBinding({
-  name: "shiny-tabulator-output",
-  onRender: (el, payload) => {
-    // Unpack the info we get from Shiny's `render.data_frame()` decorator
-    const { columns, data, type_hints } = payload;
 
-    // Convert the column names to a format that Tabulator expects
-    const columnsDef = columns.map((col, i) => {
-      return {
-        title: col,
-        field: col,
-        hozAlign: type_hints[i] === "numeric" ? "right" : "left",
-      };
-    });
-
-    // Data comes in as a series of rows with each row having as many elements
-    // as there are columns in the data. We need to map this to a series of
-    // objects with keys corresponding to the column names.
-    function zipRowWithColumns(row) {
-      const obj = {};
-      row.forEach((val, i) => {
-        obj[columns[i]] = val;
-      });
-      return obj;
+if (Shiny) {
+  class TabulatorOutputBinding extends Shiny.OutputBinding {
+    find(scope) {
+      return scope.find(".shiny-tabulator-output");
     }
 
-    // Render the table
-    new Tabulator(el, {
-      data: data.map(zipRowWithColumns),
-      layout: "fitColumns",
-      columns: columnsDef,
-    });
-  },
-});
+    renderValue(el, payload) {
+      // Unpack the info we get from Shiny's `render.data_frame()` decorator
+      const { columns, data, type_hints } = payload;
+
+      // Convert the column names to a format that Tabulator expects
+      const columnsDef = columns.map((col, i) => {
+        return {
+          title: col,
+          field: col,
+          hozAlign: type_hints[i] === "numeric" ? "right" : "left",
+        };
+      });
+
+      // Data comes in as a series of rows with each row having as many elements
+      // as there are columns in the data. We need to map this to a series of
+      // objects with keys corresponding to the column names.
+      function zipRowWithColumns(row) {
+        const obj = {};
+        row.forEach((val, i) => {
+          obj[columns[i]] = val;
+        });
+        return obj;
+      }
+
+      // Render the table
+      new Tabulator(el, {
+        data: data.map(zipRowWithColumns),
+        layout: "fitColumns",
+        columns: columnsDef,
+      });
+    }
+  }
+  Shiny.outputBindings.register(
+    new TabulatorOutputBinding(),
+    "shiny-tabulator-output"
+  );
+}
 
 /**
  * Create a new Shiny output binding that can be used to render content from the
@@ -80,40 +90,40 @@ makeShinyOutputBinding({
  * By default this function will remove the class `"shiny-output-error"` from
  * the element and set the text to `""`.
  */
-function makeShinyOutputBinding({
-  name,
-  bindingElementClass = name,
-  onRender,
-  onError = (el, err) => {
-    el.classList.add("shiny-output-error");
-    el.innerText = `Error rendering ${name}`;
-  },
-  onClearError = (el) => {
-    el.classList.remove("shiny-output-error");
-    el.innerText = "";
-  },
-}) {
-  // Make sure Shiny is available on the window before trying to use it
-  if (Shiny) {
-    class CustomOutputBinding extends Shiny.OutputBinding {
-      find(scope) {
-        return $(scope).find(`.${bindingElementClass}`);
-      }
+// function makeShinyOutputBinding({
+//   name,
+//   bindingElementClass = name,
+//   onRender,
+//   onError = (el, err) => {
+//     el.classList.add("shiny-output-error");
+//     el.innerText = `Error rendering ${name}`;
+//   },
+//   onClearError = (el) => {
+//     el.classList.remove("shiny-output-error");
+//     el.innerText = "";
+//   },
+// }) {
+//   // Make sure Shiny is available on the window before trying to use it
+//   if (Shiny) {
+//     class CustomOutputBinding extends Shiny.OutputBinding {
+//       find(scope) {
+//         return $(scope).find(`.${bindingElementClass}`);
+//       }
 
-      renderValue(el, payload) {
-        onRender(el, payload);
-      }
+//       renderValue(el, payload) {
+//         onRender(el, payload);
+//       }
 
-      renderError(el, err) {
-        onError(el, err);
-      }
+//       renderError(el, err) {
+//         onError(el, err);
+//       }
 
-      clearError(el) {
-        onClearError(el);
-      }
-    }
-    Shiny.outputBindings.register(new CustomOutputBinding(), name);
-  } else {
-    throw new Error(`Failed to bind ${name} to Shiny runtime.`);
-  }
-}
+//       clearError(el) {
+//         onClearError(el);
+//       }
+//     }
+//     Shiny.outputBindings.register(new CustomOutputBinding(), name);
+//   } else {
+//     throw new Error(`Failed to bind ${name} to Shiny runtime.`);
+//   }
+// }

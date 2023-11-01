@@ -1,3 +1,10 @@
+# Example of building a custom output binding for PyShiny.
+# Here we use tabulator https://tabulator.info/ to render a table.
+# The concepts are applicable across other types of outputs as well.
+# Note that this is _not_ a complete implementation and you would want
+# to add more features and safeguards before using this in production.
+
+
 from shiny import ui, App
 from pathlib import Path
 import pandas as pd
@@ -11,14 +18,7 @@ from shiny.render.transformer import (
 )
 
 
-# Example of building a custom output binding for PyShiny.
-# Here we use tabulator https://tabulator.info/ to render a table.
-# The concepts are applicable across other types of outputs as well.
-# Note that this is _not_ a complete implementation and you would want
-# to add more features and safeguards before using this in production.
-
-
-@output_transformer
+@output_transformer()
 async def render_tabulator(
     _meta: TransformerMetadata,
     _fn: ValueFn[pd.DataFrame | None],
