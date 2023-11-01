@@ -14,11 +14,10 @@ makeShinyOutputBinding({
 
     // Convert the column names to a format that Tabulator expects
     const columnsDef = columns.map((col, i) => {
-      const columnType = type_hints[i].type;
       return {
         title: col,
         field: col,
-        hozAlign: columnType === "numeric" ? "right" : "left",
+        hozAlign: type_hints[i] === "numeric" ? "right" : "left",
       };
     });
 

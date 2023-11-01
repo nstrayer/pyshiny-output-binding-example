@@ -1,6 +1,63 @@
-from shiny import ui, render, App
+from shiny import ui, App
+from typing import Any, overload
 from pathlib import Path
 import pandas as pd
+
+
+from shiny.render.transformer import (
+    TransformerMetadata,
+    ValueFn,
+    output_transformer,
+    resolve_value_fn,
+)
+
+
+@output_transformer
+async def TabulatorOutputTransformer(
+    _meta: TransformerMetadata,
+    _fn: ValueFn[pd.DataFrame | None],
+) -> dict[str, Any] | None:
+    res = await resolve_value_fn(_fn)
+    if res is None:
+        return None
+
+    if not isinstance(res, pd.DataFrame):
+        # Throw an error if the value is not a dataframe
+        raise TypeError(f"Expected a pandas.DataFrame, got {type(res)}. ")
+
+    # Get data from dataframe as a list of lists where each inner list is a
+    # row, column names as array of strings and types of each column as an
+    # array of strings
+    return {
+        "data": res.values.tolist(),
+        "columns": res.columns.tolist(),
+        "type_hints": res.dtypes.astype(str).tolist(),
+    }
+
+
+@overload
+def render_tabulator() -> TabulatorOutputTransformer.OutputRendererDecorator:
+    ...
+
+
+@overload
+def render_tabulator(
+    fn: TabulatorOutputTransformer.ValueFn,
+) -> TabulatorOutputTransformer.OutputRenderer:
+    ...
+
+
+def render_tabulator(
+    fn: TabulatorOutputTransformer.ValueFn | None = None,
+) -> (
+    TabulatorOutputTransformer.OutputRenderer
+    | TabulatorOutputTransformer.OutputRendererDecorator
+):
+    """
+    Reactively tabulator
+    """
+    return TabulatorOutputTransformer(fn)
+
 
 # Example of building a custom output binding for PyShiny.
 # Here we use tabulator https://tabulator.info/ to render a table.
@@ -16,16 +73,19 @@ def output_tabulator(id, height="200px"):
     A shiny output that renders a tabulator table. To be paired with
     `render.data_frame` decorator.
     """
-    return ui.div(id=id, class_="shiny-tabulator-output", style=f"height: {height}")
+    return ui.div(
+        id=id,
+        class_="shiny-tabulator-output",
+        style=f"height: {height}",
+    )
 
+
+css_loc = "https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css"
 
 app_ui = ui.page_fluid(
     ui.head_content(
         ui.include_js("tableComponent.js", type="module"),
-        ui.tags.link(
-            href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css",
-            rel="stylesheet",
-        ),
+        ui.tags.link(href=css_loc, rel="stylesheet"),
     ),
     ui.input_slider("n", "Number or rows", 1, 20, 5),
     output_tabulator("tabulatorTable"),
@@ -33,7 +93,7 @@ app_ui = ui.page_fluid(
 
 
 def server(input, output, session):
-    @render.data_frame
+    @render_tabulator
     def tabulatorTable():
         return mtcars.head(input.n())
 
