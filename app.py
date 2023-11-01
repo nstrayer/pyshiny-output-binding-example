@@ -1,22 +1,28 @@
 from shiny import ui, App
-from typing import Any, overload
 from pathlib import Path
 import pandas as pd
 
 
 from shiny.render.transformer import (
-    TransformerMetadata,
-    ValueFn,
     output_transformer,
     resolve_value_fn,
+    TransformerMetadata,
+    ValueFn,
 )
 
 
+# Example of building a custom output binding for PyShiny.
+# Here we use tabulator https://tabulator.info/ to render a table.
+# The concepts are applicable across other types of outputs as well.
+# Note that this is _not_ a complete implementation and you would want
+# to add more features and safeguards before using this in production.
+
+
 @output_transformer
-async def TabulatorOutputTransformer(
+async def render_tabulator(
     _meta: TransformerMetadata,
     _fn: ValueFn[pd.DataFrame | None],
-) -> dict[str, Any] | None:
+):
     res = await resolve_value_fn(_fn)
     if res is None:
         return None
@@ -35,39 +41,6 @@ async def TabulatorOutputTransformer(
     }
 
 
-@overload
-def render_tabulator() -> TabulatorOutputTransformer.OutputRendererDecorator:
-    ...
-
-
-@overload
-def render_tabulator(
-    fn: TabulatorOutputTransformer.ValueFn,
-) -> TabulatorOutputTransformer.OutputRenderer:
-    ...
-
-
-def render_tabulator(
-    fn: TabulatorOutputTransformer.ValueFn | None = None,
-) -> (
-    TabulatorOutputTransformer.OutputRenderer
-    | TabulatorOutputTransformer.OutputRendererDecorator
-):
-    """
-    Reactively tabulator
-    """
-    return TabulatorOutputTransformer(fn)
-
-
-# Example of building a custom output binding for PyShiny.
-# Here we use tabulator https://tabulator.info/ to render a table.
-# The concepts are applicable across other types of outputs as well.
-# Note that this is _not_ a complete implementation and you would want
-# to add more features and safeguards before using this in production.
-
-mtcars = pd.read_csv(Path(__file__).parent / "mtcars.csv")
-
-
 def output_tabulator(id, height="200px"):
     """
     A shiny output that renders a tabulator table. To be paired with
@@ -80,12 +53,13 @@ def output_tabulator(id, height="200px"):
     )
 
 
-css_loc = "https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css"
-
 app_ui = ui.page_fluid(
     ui.head_content(
         ui.include_js("tableComponent.js", type="module"),
-        ui.tags.link(href=css_loc, rel="stylesheet"),
+        ui.tags.link(
+            href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css",
+            rel="stylesheet",
+        ),
     ),
     ui.input_slider("n", "Number or rows", 1, 20, 5),
     output_tabulator("tabulatorTable"),
@@ -95,7 +69,7 @@ app_ui = ui.page_fluid(
 def server(input, output, session):
     @render_tabulator
     def tabulatorTable():
-        return mtcars.head(input.n())
+        return pd.read_csv(Path(__file__).parent / "mtcars.csv").head(input.n())
 
 
 app = App(app_ui, server)
