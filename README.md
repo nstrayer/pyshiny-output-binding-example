@@ -46,12 +46,16 @@ To implement a custom tabulator element for your app, you'll need to write three
 
 ### The `output_tabulator()` function
 
-This is the simplest of all the steps. For the case of our table we just need an HTML element to target with our javascript code. Typically this is done with a class name. In our example we'll use the class name `shiny-tabulator-output`. We also need to allow the user to set the ID of the element so that Shiny knows which element to target with which output. We'll also add a height argument so that the user can set the height of the table.
+This is the simplest of all the steps. For the case of our table we just need an HTML element to target with our javascript code. Typically this is done with a class name. In our example we'll use the class name `shiny-tabulator-output`. We also need to allow the user to set the ID of the element so that Shiny knows which element to target with which output. By wrapping the `id` argument in `resolve_id()` we make sure it will work in the context of modules. We'll also add a height argument so that the user can set the height of the table.
 
 ```python
+from shiny import ui, App
+from shiny.module import resolve_id
+
 def output_tabulator(id, height="200px"):
     return ui.div(
-        id=id,
+        # Use resolve_id so that our component will work in a module
+        id=resolve_id(id),
         class_="shiny-tabulator-output",
         style=f"height: {height}",
     )

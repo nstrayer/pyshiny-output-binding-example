@@ -16,6 +16,7 @@ from shiny.render.transformer import (
     TransformerMetadata,
     ValueFn,
 )
+from shiny.module import resolve_id
 
 
 @output_transformer()
@@ -47,7 +48,8 @@ def output_tabulator(id, height="200px"):
     `render.data_frame` decorator.
     """
     return ui.div(
-        id=id,
+        # Use resolve_id so that our component will work in a module
+        id=resolve_id(id),
         class_="shiny-tabulator-output",
         style=f"height: {height}",
     )
