@@ -34,7 +34,7 @@ In this post, you will learn how to create a custom element and accompanying out
 
 ## The problem
 
-You found a new table library that you really want to use in your PyShiny app. Problem is, there's no wrapper for it, currently. The library is [Tabulator](URL-GOES-HERE) and it's a javascript library.
+You found a new table library that you really want to use in your PyShiny app. Problem is, there's no wrapper for it, currently. The library is [Tabulator](https://tabulator.info/) and it's a javascript library.
 
 ## The solution
 
@@ -117,7 +117,7 @@ Next, we can look into the renderValue function. This function gets passed two a
     ...
 ```
 
-The implementation of this function is not terribly important and draws directly from the [tabulator docs](URL_GOES_HERE). What matters is that we take our data, transform it in some way, and then instantiate our table with the `new Tabulator(el, {...})` call. In this case we take data in the form of the rows of a passed data frame, the column names, and the types of those columns, and construct a js object in the form of `data = [{col1: foo1, col2: bar1, ...}, {col1: foo2, col2: bar2, ...}]` along with combining the column names and types to create the `columnsDef` object that Tabulator expects. The format of this will vary entirely based upon the type of component you're building though, so if you don't follow, don't worry!
+The implementation of this function is not terribly important and draws directly from the [tabulator docs](https://tabulator.info/docs/5.5/quickstart). What matters is that we take our data, transform it in some way, and then instantiate our table with the `new Tabulator(el, {...})` call. In this case we take data in the form of the rows of a passed data frame, the column names, and the types of those columns, and construct a js object in the form of `data = [{col1: foo1, col2: bar1, ...}, {col1: foo2, col2: bar2, ...}]` along with combining the column names and types to create the `columnsDef` object that Tabulator expects. The format of this will vary entirely based upon the type of component you're building though, so if you don't follow, don't worry!
 
 Last, we need to register our new class with Shiny so it adds it to the list of output bindings that it needs to check when it's looking for an output to render. We do this with the `Shiny.outputBindings.register()` function. This function takes two arguments: the name of the binding, and the class that implements the binding. We'll call our binding `"shinyjs.customOutput"` and pass it our `TabulatorOutputBinding` class.
 
