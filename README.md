@@ -227,3 +227,8 @@ def server(input, output, session):
 
 app = App(app_ui, server)
 ```
+
+The final unabbridged files are:
+
+- [app.py](app.py)
+- [tableComponent.js](tableComponent.js)

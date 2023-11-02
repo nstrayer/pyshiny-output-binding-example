@@ -1,18 +1,38 @@
 import { Tabulator } from "https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator_esm.min.js";
 
-// TODOS:
+// Possible improvements:
 // - Handle resizing of the page better
 // - Give better error messages
 // - Add logic for customizing display based on column types
-// - Wrap up the render.data_frame() logic into a new render.tabulator()
-//   function so custom logic can be provided
 
+// Wrap all definition in a check for the presence of Shiny. This allows the JS
+// to be loaded outside without causing errors.
 if (Shiny) {
   class TabulatorOutputBinding extends Shiny.OutputBinding {
+    /**
+     * Find the element that will be rendered by this output binding.
+     * @param {HTMLElement} scope The scope in which to search for the element.
+     * @returns {HTMLElement} The element that will be rendered by this output
+     * binding.
+     */
     find(scope) {
       return scope.find(".shiny-tabulator-output");
     }
 
+    /**
+     * Function to run when rendering the output. This function will be passed
+     * the element that was found by `find()` and the payload that was sent by
+     * the server when there's new data to render. Note that the element passed
+     * may already be populated with content from a previous render and it is up
+     * to the function to clear the element and re-render the content.
+     * @param {HTMLElement} el The element that was found by `find()`
+     * @param {Record<String, Any>} payload An object with the following properties as provided by
+     * `@render_tabulator:
+     * - `columns`: An array of strings containing the column names
+     * - `data`: An array of arrays containing the data
+     * - `type_hints`: An array of objects containing the column types. Each
+     *   object
+     */
     renderValue(el, payload) {
       // Unpack the info we get from Shiny's `render.data_frame()` decorator
       const { columns, data, type_hints } = payload;
@@ -50,80 +70,3 @@ if (Shiny) {
     "shiny-tabulator-output"
   );
 }
-
-/**
- * Create a new Shiny output binding that can be used to render content from the
- * server to the client.
- *
- * This function is a wrapper around the `Shiny.OutputBinding` class and
- * provides a simpler interface for creating output bindings. For more control
- * use the `Shiny.OutputBinding` class and the `Shiny.outputBindings.register()`
- * function directly.
- *
- * @param {string} options.name Name used to refer to this output binding in the
- *  server code. Not super important but must be unique. E.g. dont use
- *  `"dataTable"` if there is already a binding with that name.
- * @param {string} options.bindingElementClass The class-name associated with
- * the element that will be rendered by this output binding. Defaults to
- * `options.name`. This is used to find the element in the DOM when rendering
- * and is also used to identify the element as being associated with this output
- * binding. Must be unique.
- * @param {Function} options.onRender Function to run when rendering the output.
- * This function will be passed the element that was found by `find()` and the
- * payload that was sent by the server. The payload will depend on which render
- * function was used in the server code. For example, if `render.data_frame()`
- * was used, then the payload will be an object with the following properties:
- * - `columns`: An array of strings containing the column names
- * - `data`: An array of arrays containing the data
- * - `type_hints`: An array of objects containing the column types. Each object
- *   has a `type` property that is either `"numeric"` or `"character"`. Note
- *   that the element passed may already be populated with content from a
- *   previous render and it is up to the function to clear the element and
- *   re-render the content.
- * @param {Function} options.onError Function to run when an error occurs. This
- * function will be passed the element that was found by `find()` and the error
- * that was thrown. By default this function will add the class
- * `"shiny-output-error"` to the element and set the text to `"Error rendering
- * ${bindingName}"`.
- * @param {Function} options.onClearError Function to run when clearing an
- * error. This function will be passed the element that was found by `find()`.
- * By default this function will remove the class `"shiny-output-error"` from
- * the element and set the text to `""`.
- */
-// function makeShinyOutputBinding({
-//   name,
-//   bindingElementClass = name,
-//   onRender,
-//   onError = (el, err) => {
-//     el.classList.add("shiny-output-error");
-//     el.innerText = `Error rendering ${name}`;
-//   },
-//   onClearError = (el) => {
-//     el.classList.remove("shiny-output-error");
-//     el.innerText = "";
-//   },
-// }) {
-//   // Make sure Shiny is available on the window before trying to use it
-//   if (Shiny) {
-//     class CustomOutputBinding extends Shiny.OutputBinding {
-//       find(scope) {
-//         return $(scope).find(`.${bindingElementClass}`);
-//       }
-
-//       renderValue(el, payload) {
-//         onRender(el, payload);
-//       }
-
-//       renderError(el, err) {
-//         onError(el, err);
-//       }
-
-//       clearError(el) {
-//         onClearError(el);
-//       }
-//     }
-//     Shiny.outputBindings.register(new CustomOutputBinding(), name);
-//   } else {
-//     throw new Error(`Failed to bind ${name} to Shiny runtime.`);
-//   }
-// }
