@@ -236,3 +236,68 @@ The final unabbridged files are:
 
 - [app.py](app.py)
 - [tableComponent.js](tableComponent.js)
+
+## Appendix: Cleaning things up with `HTMLDependency`
+
+What we have is a quick and easy way to get a custom output working, but it's not very robust. For example, if we were to use this in a package, we would want to make sure that the javascript and css is only loaded once, and that it's loaded in the right order. We can do this with the `HTMLDependency` class.
+
+To do this we create a new folder for holding all our resources. In this case we can call it `tabulator/`. The structure is:
+
+```
+tabulator/
+  tableComponent.js
+  tabulator_esm.min.js
+  tabulator.min.css
+```
+
+_Check out the actual structure [here](tabulator/)._
+
+Note that we are directly including the js and css here now, that way we dont have to depend on a CDN for loading the assets.
+
+This means that the top of our `tableComponent.js` file can now import the tabulator library directly:
+
+```javascript
+import Tabulator from "./tabulator_esm.min.js";
+...
+```
+
+Now to utilize this we just need to create an HTML dependency that points to that tabulator folder and then pulls in our js file and the css.
+
+```python
+from htmltools import HTMLDependency
+
+tabulator_dep = HTMLDependency(
+    "tabulator",
+    "5.5.2",
+    source={"subdir": "tabulator"},
+    script={"src": "tableComponent.js", "type": "module"},
+    stylesheet={"href": "tabulator.min.css"},
+    all_files=True,
+)
+```
+
+_Note the use of `all_files=True` here. This makes it so we can do the esm import of the tabulator library. Otherwise `tabulator_esm.min.js` would not be hosted and the js library couldn't find it._
+
+Now we can update the `output_tabulator()` function to use this dependency:
+
+```python
+def output_tabulator(id, height="200px"):
+    return ui.div(
+        # Add dependency
+        tabulator_dep,
+        id=resolve_id(id),
+        class_="shiny-tabulator-output",
+        style=f"height: {height}",
+    )
+```
+
+Now we can remove the `ui.head_content()` call from our app!
+
+```python
+app_ui = ui.page_fluid(
+    ui.input_slider("n", "Number or rows", 1, 20, 5),
+    output_tabulator("tabulatorTable"),
+)
+```
+
+To see the full code for this, see [app_w_htmldeps.py](app_w_htmldeps.py).
