@@ -6,64 +6,60 @@ The concepts are applicable across other types of outputs as well.
 Note that this is _not_ a complete implementation and you would want
 to add more features and safeguards before using this in production.
 
-## Running
-
-First install Shiny and pandas
-
-```bash
-# Create a virtual environment in the .venv subdirectory
-python3 -m venv venv
-
-# Activate the virtual environment
-source venv/bin/activate
-
-# Install Shiny and pandas
-pip install shiny
-pip install pandas
-```
-
-Then run the app (make sure your shell has activated the venv.)
-
-```bash
-shiny run --reload
-```
-
 # About
 
 In this post, you will learn how to create a custom element and accompanying output binding in PyShiny. This is useful if you want to create an output that is not currently in Shiny for your app or if you want to create a custom output for a package you are developing. Note that the code shown here is simplified to get the point across, but before you use it in your own app, you should make sure to add error handling and other features to make it robust.
 
 ## The problem
 
-You found a new table library that you really want to use in your PyShiny app. Problem is, there's no wrapper for it, currently. The library is [Tabulator](https://tabulator.info/) and it's a javascript library.
+You found a new table library that you really want to use in your PyShiny app. Problem is, there's no wrapper for it, currently. The library is [Tabulator](https://tabulator.info/) and it's a javascript library for making tables with data.
 
 ## The solution
 
 To implement a custom tabulator element for your app, you'll need to write three things:
 
-1. A `output_tabulator()` function for placing the element in your app's UI
-2. A javascript script that renders the element on the client side using the Tabulator library and the Shiny.js's `Shiny.OutputBinding` class.
+1. A javascript script that renders the element on the client side using the Tabulator library
+2. An `output_tabulator()` function for placing the element in your app's UI
 3. A `render_tabulator()` decorator for passing table data to the javascript code rendering the element on the server side
-
-### The `output_tabulator()` function
-
-This is the simplest of all the steps. For the case of our table we just need an HTML element to target with our javascript code. Typically this is done with a class name. In our example we'll use the class name `shiny-tabulator-output`. We also need to allow the user to set the ID of the element so that Shiny knows which element to target with which output. By wrapping the `id` argument in `resolve_id()` we make sure it will work in the context of modules. We'll also add a height argument so that the user can set the height of the table.
-
-```python
-from shiny import ui, App
-from shiny.module import resolve_id
-
-def output_tabulator(id, height="200px"):
-    return ui.div(
-        # Use resolve_id so that our component will work in a module
-        id=resolve_id(id),
-        class_="shiny-tabulator-output",
-        style=f"height: {height}",
-    )
-```
 
 ### The javascript code
 
-Now that we have an element that we can target to render our tabulator table, we need to write the javascript code that will render the table. This is done with the `Shiny.OutputBinding` class. This class has two methods that we need to implement: `find()` and `renderValue()`. The `find()` method is used to find the element that we want to render the table in. The `renderValue()` method is used to render the table in the element.
+First things first, to use a custom Javascript library we need to write... some javascript.
+
+To do this we will create a new folder called `tabulator/` that has the following structure:
+
+```
+tabulator/
+  tabulator_esm.min.js
+  tabulator.min.css
+  tableComponent.js
+```
+
+Both `tabulator_esm.min.js` and `tabulator.min.css` are downloaded from [tabulator's website.](https://tabulator.info/docs/5.5/install#sources-download) `tableComponent.js` is the script that we will write that contains the code for rendering the table to our Shiny app.
+
+To create an output binding in Shiny, we create a new instance of the `Shiny.OutputBinding` class.
+
+```javascript
+class TabulatorOutputBinding extends Shiny.OutputBinding {
+    // Find element to render in
+    find(scope) { ... }
+
+    // Render output element in the found element
+    renderValue(el, payload) { ... }
+}
+
+// Register the binding
+Shiny.outputBindings.register(
+  new TabulatorOutputBinding(),
+  "shiny-tabulator-output"
+);
+```
+
+This class has two methods that we need to implement: `find()` and `renderValue()`. The `find()` method is used to find the element that we want to render the table in. The `renderValue()` method is used to render the table in the element. After making that class we need to register it with Shiny so it can find and send data to instances of our output.
+
+#### The `find()` method
+
+Now that we have the scaffolding setup, we can fill it in. Starting with the `find` method, this function is passed a `scope` object, which is a `JQuery` selection and should return the element you wish to render your output into.
 
 ```javascript
 class TabulatorOutputBinding extends Shiny.OutputBinding {
@@ -71,24 +67,27 @@ class TabulatorOutputBinding extends Shiny.OutputBinding {
         return scope.find(".shiny-tabulator-output");
     }
 
-    renderValue(el, payload) {
-        ...
-    }
-
+    renderValue(el, payload) {...}
 }
+
+Shiny.outputBindings.register(...);
 ```
 
-What we've done here is create a new class called `TabulatorOutputBinding` that inherits from the `Shiny.OutputBinding` class. We then define the `find()` and `renderValue()` methods.
+Note that we're using the class `".shiny-tabulator-output"` here to mark the element that we want to render the table in. This is the same class that we will use in our `output_tabulator()` function in our app's server code. You can use any valid css selector here, but it's common to use a descriptive class name like this.
 
-Looking first at the `find` method implementation. This function is passed a `scope` object, which is a `JQuery` selection. From this we can find our tabulator elements by looking for the element class by prefixing a `"."` before the class name. (Note you could use any other valid css selector here, such as an attribute selector, or an element selector, etc.)
+#### The `renderValue()` method
 
-Next, we can look into the renderValue function. This function gets passed two arguments: `el` which is an HTMLElement as found by our find function, and `payload` which is the data that the server has provided from the render function (more on this soon.)
+Next, we fill in the main logic for rendering our table in to the `renderValue` method. This method gets passed two arguments: `el` which is an HTMLElement as found by our find function, and `payload` which is the data that the server has provided from the render function (more on this [soon.](#the-render_tabulator-decorator))
 
 ```javascript
-    ...
+// Import the Tabulator library
+import { Tabulator } from "./tabulator_esm.min.js";
+
+class TabulatorOutputBinding extends Shiny.OutputBinding {
+    find(scope) { ... }
 
     renderValue(el, payload) {
-      // Unpack the info we get from Shiny's `render.data_frame()` decorator
+      // Unpack the info we get from the associated render function
       const { columns, data, type_hints } = payload;
 
       // Convert the column names to a format that Tabulator expects
@@ -118,19 +117,16 @@ Next, we can look into the renderValue function. This function gets passed two a
         columns: columnsDef,
       });
     }
-    ...
+}
+
+Shiny.outputBindings.register(...);
 ```
 
-The implementation of this function is not terribly important and draws directly from the [tabulator docs](https://tabulator.info/docs/5.5/quickstart). What matters is that we take our data, transform it in some way, and then instantiate our table with the `new Tabulator(el, {...})` call. In this case we take data in the form of the rows of a passed data frame, the column names, and the types of those columns, and construct a js object in the form of `data = [{col1: foo1, col2: bar1, ...}, {col1: foo2, col2: bar2, ...}]` along with combining the column names and types to create the `columnsDef` object that Tabulator expects. The format of this will vary entirely based upon the type of component you're building though, so if you don't follow, don't worry!
+The implementation of this function is not terribly important and draws directly from the [tabulator docs](https://tabulator.info/docs/5.5/quickstart).
 
-Last, we need to register our new class with Shiny so it adds it to the list of output bindings that it needs to check when it's looking for an output to render. We do this with the `Shiny.outputBindings.register()` function. This function takes two arguments: the name of the binding, and the class that implements the binding. We'll call our binding `"shinyjs.customOutput"` and pass it our `TabulatorOutputBinding` class.
+What matters is that we take our data, transform it in some way, and then instantiate our table with the `new Tabulator(el, {...})` call. In this case we take data in the form of the rows of a passed data frame, the column names, and the types of those columns (we decide this format when we [create the render decorator](#the-render_tabulator-decorator)), and construct a js object in the form of `data = [{col1: foo1, col2: bar1, ...}, {col1: foo2, col2: bar2, ...}]`. We also combine the column names and types to create the `columnsDef` object that Tabulator expects.
 
-```javascript
-Shiny.outputBindings.register(
-  new TabulatorOutputBinding(),
-  "shiny-tabulator-output"
-);
-```
+The format of this will vary entirely based upon the type of component you're building though, so if you don't follow, don't worry!
 
 _Aside:_. Since this code is relying on the `Shiny` object just existing in the Javascript context. It's safe to wrap all the above code in an if statement so it only runs if that object exists. This is useful if you're writing a package that might be used in a non-Shiny context, your code wont error out and break the document.
 
@@ -142,11 +138,46 @@ if (Shiny) {
 }
 ```
 
+### The `output_tabulator()` function
+
+For the case of our table we just need an HTML element to target with our javascript code. When we setup [the find method](#the-find-method) for our binding, we chose the class `shiny-tabulator-output` as the mark of a tabualtor output, so we need to add that class. We also need to allow the user to set the ID of the element so that Shiny knows which element to target with which output. By wrapping the `id` argument in `resolve_id()` we make sure it will work in the context of modules. We'll also add a height argument so that the user can set the height of the table.
+
+```python
+from shiny import ui, App
+from shiny.module import resolve_id
+
+from htmltools import HTMLDependency
+
+tabulator_dep = HTMLDependency(
+    "tabulator",
+    "5.5.2",
+    source={"subdir": "tabulator"},
+    script={"src": "tableComponent.js", "type": "module"},
+    stylesheet={"href": "tabulator.min.css"},
+    all_files=True,
+)
+
+def output_tabulator(id, height="200px"):
+    return ui.div(
+        tabulator_dep,
+        # Use resolve_id so that our component will work in a module
+        id=resolve_id(id),
+        class_="shiny-tabulator-output",
+        style=f"height: {height}",
+    )
+```
+
+We use the `HTMLDependency` function to bind up the assets needed for tabulator that we made in the previous step and making sure that they're included in our app anytime the `output_tabulator()` function is called (but not more than once.)
+
+_Note the use of `all_files=True` here. This makes it so we can do the esm import of the tabulator library. Otherwise `tabulator_esm.min.js` would not be hosted and the js library couldn't find it._
+
+Now, the `output_tabulator()` function can be called anywhere we want to render a table in our app.
+
 ### The `render_tabulator()` decorator
 
 Now we've got the client-side logic finished, we need to write a custom render decorator that sends our data into the component.
 
-To do this we can leverage some tools provided by shiny in the `shiny.render.transformer` subpackage.
+To do this we can leverage some tools provided by Shiny in the `shiny.render.transformer` subpackage.
 
 ```python
 from shiny.render.transformer import (
@@ -188,11 +219,35 @@ The `output_transformer` decorator is a decorator factory that takes a function 
 
 In the code above we use types so that we can get some type checking in our IDE, but these are not required. Also note that the decorated function is an async function, so we need to use the `await` keyword when we call it for `resolve_value_fn()`.
 
+```python
+...
+res = await resolve_value_fn(_fn)
+...
+```
+
 `resolve_value_fn()` is a helper provided in `shiny.render.transformer` for resolving the value of a function that may or may not be async. This allows us to write our code in a way that is agnostic to how the user has written their render function.
 
-Next we check to make sure that the value returned by the function is a dataframe. If it's not, we throw an error. This is not required, but it's good practice to do so.
+Next, we check to make sure that the value returned by the function is a dataframe. If it's not, we throw an error. This is not required, but it's good practice to do so.
+
+```python
+...
+if not isinstance(res, pd.DataFrame):
+    # Throw an error if the value is not a dataframe
+    raise TypeError(f"Expected a pandas.DataFrame, got {type(res)}. ")
+...
+```
 
 Finally, we return a dictionary of data that we want to pass to the client side. In this case we return the data as a list of lists, the column names as an array of strings, and the types of each column as an array of strings using methods provided by pandas.
+
+```python
+...
+return {
+    "data": res.values.tolist(),
+    "columns": res.columns.tolist(),
+    "type_hints": res.dtypes.astype(str).tolist(),
+}
+...
+```
 
 This returned value is then what gets sent to the client side and is available in the `payload` argument of the `renderValue()` method of our `TabulatorOutputBinding` class.
 
@@ -205,19 +260,11 @@ from shiny import ui, App
 from pathlib import Path
 import pandas as pd
 
-
 # Code for the custom output
 ...
 
 # App code
 app_ui = ui.page_fluid(
-    ui.head_content(
-        ui.include_js("tableComponent.js", type="module"),
-        ui.tags.link(
-            href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css",
-            rel="stylesheet",
-        ),
-    ),
     ui.input_slider("n", "Number or rows", 1, 20, 5),
     output_tabulator("tabulatorTable"),
 )
@@ -235,69 +282,4 @@ app = App(app_ui, server)
 The final unabbridged files are:
 
 - [app.py](app.py)
-- [tableComponent.js](tableComponent.js)
-
-## Appendix: Cleaning things up with `HTMLDependency`
-
-What we have is a quick and easy way to get a custom output working, but it's not very robust. For example, if we were to use this in a package, we would want to make sure that the javascript and css is only loaded once, and that it's loaded in the right order. We can do this with the `HTMLDependency` class.
-
-To do this we create a new folder for holding all our resources. In this case we can call it `tabulator/`. The structure is:
-
-```
-tabulator/
-  tableComponent.js
-  tabulator_esm.min.js
-  tabulator.min.css
-```
-
-_Check out the actual structure [here](tabulator/)._
-
-Note that we are directly including the js and css here now, that way we dont have to depend on a CDN for loading the assets.
-
-This means that the top of our `tableComponent.js` file can now import the tabulator library directly:
-
-```javascript
-import Tabulator from "./tabulator_esm.min.js";
-...
-```
-
-Now to utilize this we just need to create an HTML dependency that points to that tabulator folder and then pulls in our js file and the css.
-
-```python
-from htmltools import HTMLDependency
-
-tabulator_dep = HTMLDependency(
-    "tabulator",
-    "5.5.2",
-    source={"subdir": "tabulator"},
-    script={"src": "tableComponent.js", "type": "module"},
-    stylesheet={"href": "tabulator.min.css"},
-    all_files=True,
-)
-```
-
-_Note the use of `all_files=True` here. This makes it so we can do the esm import of the tabulator library. Otherwise `tabulator_esm.min.js` would not be hosted and the js library couldn't find it._
-
-Now we can update the `output_tabulator()` function to use this dependency:
-
-```python
-def output_tabulator(id, height="200px"):
-    return ui.div(
-        # Add dependency
-        tabulator_dep,
-        id=resolve_id(id),
-        class_="shiny-tabulator-output",
-        style=f"height: {height}",
-    )
-```
-
-Now we can remove the `ui.head_content()` call from our app!
-
-```python
-app_ui = ui.page_fluid(
-    ui.input_slider("n", "Number or rows", 1, 20, 5),
-    output_tabulator("tabulatorTable"),
-)
-```
-
-To see the full code for this, see [app_w_htmldeps.py](app_w_htmldeps.py).
+- [tabulator/tableComponent.js](tabulator/tableComponent.js)

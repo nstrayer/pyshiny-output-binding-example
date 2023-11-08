@@ -1,13 +1,13 @@
-# Example of building a custom output binding for PyShiny.
-# Here we use tabulator https://tabulator.info/ to render a table.
-# The concepts are applicable across other types of outputs as well.
-# Note that this is _not_ a complete implementation and you would want
-# to add more features and safeguards before using this in production.
+# Example of building a custom output binding for PyShiny. This example
+# demonstrates the use of HTMLDependency to include external javascript and css
+# files directly in the output element instead of requiring them to be included
+# in the ui head everytime
 
 
 from shiny import ui, App
 from pathlib import Path
 import pandas as pd
+from htmltools import HTMLDependency
 
 
 from shiny.render.transformer import (
@@ -42,12 +42,23 @@ async def render_tabulator(
     }
 
 
+tabulator_dep = HTMLDependency(
+    "tabulator",
+    "5.5.2",
+    source={"subdir": "tabulator"},
+    script={"src": "tableComponent.js", "type": "module"},
+    stylesheet={"href": "tabulator.min.css"},
+    all_files=True,
+)
+
+
 def output_tabulator(id, height="200px"):
     """
     A shiny output that renders a tabulator table. To be paired with
     `render.data_frame` decorator.
     """
     return ui.div(
+        tabulator_dep,
         # Use resolve_id so that our component will work in a module
         id=resolve_id(id),
         class_="shiny-tabulator-output",
@@ -56,13 +67,6 @@ def output_tabulator(id, height="200px"):
 
 
 app_ui = ui.page_fluid(
-    ui.head_content(
-        ui.include_js("tableComponent.js", type="module"),
-        ui.tags.link(
-            href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css",
-            rel="stylesheet",
-        ),
-    ),
     ui.input_slider("n", "Number or rows", 1, 20, 5),
     output_tabulator("tabulatorTable"),
 )
