@@ -1,6 +1,6 @@
-# PyShiny custom output binding
+# Shiny for python custom output binding
 
-Example of building a custom output binding for PyShiny.
+Example of building a custom output binding for Shiny.
 Here we use tabulator https://tabulator.info/ to render a table.
 The concepts are applicable across other types of outputs as well.
 Note that this is _not_ a complete implementation and you would want
@@ -8,11 +8,11 @@ to add more features and safeguards before using this in production.
 
 # About
 
-In this post, you will learn how to create a custom element and accompanying output binding in PyShiny. This is useful if you want to create an output that is not currently in Shiny for your app or if you want to create a custom output for a package you are developing. Note that the code shown here is simplified to get the point across, but before you use it in your own app, you should make sure to add error handling and other features to make it robust.
+In this post, you will learn how to create a custom element and accompanying output binding in Shiny. This is useful if you want to create an output that is not currently in Shiny for your app or if you want to create a custom output for a package you are developing. Note that the code shown here is simplified to get the point across, but before you use it in your own app, you should make sure to add error handling and other features to make it robust.
 
 ## The problem
 
-You found a new table library that you really want to use in your PyShiny app. Problem is, there's no wrapper for it, currently. The library is [Tabulator](https://tabulator.info/) and it's a javascript library for making tables with data.
+You found a new table library that you really want to use in your Shiny app. Problem is, there's no wrapper for it, currently. The library is [Tabulator](https://tabulator.info/) and it's a javascript library for making tables with data.
 
 ## The solution
 

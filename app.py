@@ -1,4 +1,4 @@
-# Example of building a custom output binding for PyShiny. This example
+# Example of building a custom output binding for Shiny. This example
 # demonstrates the use of HTMLDependency to include external javascript and css
 # files directly in the output element instead of requiring them to be included
 # in the ui head everytime
