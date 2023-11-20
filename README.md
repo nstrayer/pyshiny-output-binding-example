@@ -265,7 +265,7 @@ import pandas as pd
 
 # App code
 app_ui = ui.page_fluid(
-    ui.input_slider("n", "Number or rows", 1, 20, 5),
+    ui.input_slider("n", "Number of rows to show", 1, 20, 10),
     output_tabulator("tabulatorTable"),
 )
 
